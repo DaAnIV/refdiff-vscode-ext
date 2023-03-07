@@ -1,0 +1,114 @@
+{
+  "name": "refdiffvsc",
+  "displayName": "RefDiffVSC",
+  "description": "",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "refdiff.helloWorld",
+        "title": "Hello World"
+      },
+      {
+        "command": "refdiff.compare",
+        "title": "Compare with RefDiff",
+        "enablement": "listDoubleSelection"
+      },
+      {
+        "command": "refdiff.refresh",
+        "title": "Refresh",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "refdiff.delete",
+        "title": "Delete",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "refdiff.click",
+        "title": "click"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "refdiff.compare",
+          "when": "listDoubleSelection"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "refdiff.refresh",
+          "when": "view == refDiffCompareView && viewItem == root",
+          "group": "inline"
+        },
+        {
+          "command": "refdiff.delete",
+          "when": "view == refDiffCompareView && viewItem == root",
+          "group": "inline"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "refDiffCompareView",
+        "contents": "No comparisons"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "refDiffContainer",
+          "title": "RefDiff",
+          "icon": "resources/RefDiffContainer.svg"
+        }
+      ]
+    },
+    "views": {
+      "refDiffContainer": [
+        {
+          "id": "refDiffCompareView",
+          "name": "Ref Diff compare"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/glob": "^8.1.0",
+    "@types/mocha": "^10.0.1",
+    "@types/node": "16.x",
+    "@types/vscode": "^1.75.0",
+    "@typescript-eslint/eslint-plugin": "^5.53.0",
+    "@typescript-eslint/parser": "^5.53.0",
+    "@vscode/test-electron": "^2.2.3",
+    "eslint": "^8.34.0",
+    "glob": "^8.1.0",
+    "mocha": "^10.2.0",
+    "typescript": "^4.9.5"
+  },
+  "dependencies": {
+    "@refdiffts/core": "file:../refDiffTS/packages/refdiffts-core",
+    "@refdiffts/js": "file:../refDiffTS/packages/refdiffts-js",
+    "@types/walk": "^2.3.1",
+    "@types/tmp": "^0.2.3",
+    "file": "^0.2.2",
+    "tmp": "0.2.1",
+    "walk": "^2.3.15"
+  }
+}
