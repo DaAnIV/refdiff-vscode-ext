@@ -7,12 +7,12 @@ import { Location } from './CST/Location';
 import { TokenPosition } from './CST/TokenizedFile';
 
 export {
-  CST,
-  CSTNode,
-  RelationshipFinder,
-  Relationship,
-  RelationshipType,
-  Location,
-  TokenPosition,
-  SourceCodeAnalyzer
+    CST,
+    CSTNode,
+    RelationshipFinder,
+    Relationship,
+    RelationshipType,
+    Location,
+    TokenPosition,
+    SourceCodeAnalyzer
 };
