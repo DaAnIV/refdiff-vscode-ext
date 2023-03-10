@@ -12,6 +12,6 @@
         "editor.defaultFormatter": "esbenp.prettier-vscode"
     },
     "jest.rootPath": "refDiffTS",
-    "jest.jestCommandLine": "npx jest",
+    "jest.jestCommandLine": "../node_modules/.bin/jest",
     "mochaExplorer.cwd": "extension"
 }
