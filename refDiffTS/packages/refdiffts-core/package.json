@@ -1,0 +1,50 @@
+{
+    "name": "@refdiffts/core",
+    "version": "1.0.0",
+    "description": "",
+    "author": "",
+    "license": "ISC",
+    "publishConfig": {
+      "access": "public"
+    },
+    "type": "commonjs",
+    "main": "dist/src/index.js",
+    "types": "dist/src/index.d.ts",
+    "files": [
+      "dist"
+    ],
+    "scripts": {
+      "vscode:prepublish": "pnpm run build",
+      "build": "pnpm run compile",
+      "clean": "rimraf ./dist",
+      "compile": "tsc -p tsconfig.json",
+      "watch": "tsc -watch -p ./",
+      "pretest": "pnpm run compile && pnpm run lint",
+      "lint": "eslint src --ext ts",
+      "prettier": "prettier --check src/",
+      "prettier:fix": "prettier --write src/",
+      "test": "jest --passWithNoTests"
+    },
+    "workspaces": [
+      "packages/*"  
+    ],
+    "dependencies": {
+    },
+    "devDependencies": {
+      "@types/jest": "^29.4.0",
+      "@types/glob": "^8.1.0",
+      "@types/node": "16.x",
+      "@typescript-eslint/eslint-plugin": "^5.53.0",
+      "@typescript-eslint/parser": "^5.53.0",
+      "jest": "^29.0.0",
+      "ts-jest": "^29.0.5",
+      "eslint": "^8.34.0",
+      "glob": "^8.1.0",
+      "typescript": "^4.9.5"
+    },    
+    "jest": {
+      "preset": "ts-jest",
+      "testEnvironment": "node",
+      "rootDir": "test"
+    }
+  }

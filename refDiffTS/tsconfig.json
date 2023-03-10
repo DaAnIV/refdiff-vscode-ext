@@ -1,0 +1,16 @@
+{
+	"references": [
+		{"path": "./packages/refdiffts-core"},
+		{"path": "./packages/refdiffts-js"}
+	],
+	"files": [],
+	"include": [],
+	"exclude": [
+		"**/node_modules",
+		"dist"
+	],
+    "compilerOptions": {
+      "esModuleInterop": true,
+      "composite": true,
+	}
+}

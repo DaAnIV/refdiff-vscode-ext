@@ -1,133 +1,29 @@
 {
-  "name": "refdiffvsc",
-  "displayName": "RefDiffVSC",
-  "description": "",
-  "version": "0.0.1",
-  "engines": {
-    "vscode": "^1.75.0"
-  },
-  "categories": [
-    "Other"
-  ],
-  "type": "commonjs",
-  "activationEvents": [],
-  "main": "./out/extension.js",
-  "contributes": {
-    "commands": [
-      {
-        "command": "refdiffvsc.compare",
-        "title": "Compare with RefDiff",
-        "enablement": "listDoubleSelection"
-      },
-      {
-        "command": "refdiffvsc.refresh",
-        "title": "Refresh",
-        "icon": "$(refresh)"
-      },
-      {
-        "command": "refdiffvsc.delete",
-        "title": "Delete",
-        "icon": "$(trash)"
-      },
-      {
-        "command": "refdiffvsc.scm.refresh",
-        "title": "Refresh",
-        "icon": "$(refresh)"
-      }
-    ],
-    "menus": {
-      "explorer/context": [
-        {
-          "command": "refdiffvsc.compare",
-          "when": "listDoubleSelection"
-        }
-      ],
-      "view/item/context": [
-        {
-          "command": "refdiffvsc.refresh",
-          "when": "view == refdiffvsc.compareView && viewItem == root",
-          "group": "inline"
-        },
-        {
-          "command": "refdiffvsc.delete",
-          "when": "view == refdiffvsc.compareView && viewItem == root",
-          "group": "inline"
-        }
-      ],
-      "view/title": [
-        {
-          "command": "refdiffvsc.scm.refresh",
-          "when": "view == refdiffvsc.SCMView",
-          "group": "navigation"
-        }
-      ]
-    },
-    "viewsWelcome": [
-      {
-        "view": "refdiffvsc.compareView",
-        "contents": "No comparisons"
-      },
-      {
-        "view": "refdiffvsc.SCMView",
-        "contents": "No git repositories",
-        "when": "!config.git.enabled || git.state != initialized"
-      },
-      {
-        "view": "refdiffvsc.SCMView",
-        "contents": "No changes",
-        "when": "config.git.enabled && git.state == initialized && workbenchState == empty"
-      }
-    ],
-    "viewsContainers": {
-      "activitybar": [
-        {
-          "id": "refdiffvsc",
-          "title": "RefDiff",
-          "icon": "resources/RefDiffContainer.svg"
-        }
-      ]
-    },
-    "views": {
-      "refdiffvsc": [
-        {
-          "id": "refdiffvsc.compareView",
-          "name": "Ref Diff compare"
-        },
-        {
-          "id": "refdiffvsc.SCMView",
-          "name": "Ref Diff SCM"
-        }
-      ]
-    }
-  },
+  "name": "refdiffvscworkspace",
+  "version": "1.0.0",
+  "private": true,
+  "author": "",
+  "license": "ISC",
+  "type": "module",
   "scripts": {
-    "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
-    "pretest": "npm run compile && npm run lint",
-    "lint": "eslint src --ext ts",
-    "test": "node ./out/test/runTest.js"
+    "clean": "pnpm run -r clean",
+    "watch": "pnpm run -r --parallel --filter=./packages/** --filter=./extension watch",
+    "build": "pnpm run -r build",
+    "prettier": "pnpm run -r prettier",
+    "prettier:fix": "pnpm run -r prettier:fix",
+    "test": "pnpm run -r test --passWithNoTests",
+    "lint": "eslint --ext js,ts,tsx ."
   },
-  "devDependencies": {
-    "@types/glob": "^8.1.0",
-    "@types/mocha": "^10.0.1",
-    "@types/node": "16.x",
-    "@types/vscode": "^1.75.0",
-    "@typescript-eslint/eslint-plugin": "^5.53.0",
-    "@typescript-eslint/parser": "^5.53.0",
-    "@vscode/test-electron": "^2.2.3",
-    "eslint": "^8.34.0",
-    "glob": "^8.1.0",
-    "mocha": "^10.2.0",
-    "typescript": "^4.9.5"
+  "workspaces": [
+    "refDiffTS/packages/**",
+    "extension"
+  ],
+  "engines": {
+    "node": ">=10.15.0"
   },
-  "dependencies": {
-    "@refdiffts/core": "file:../refDiffTS/packages/refdiffts-core",
-    "@refdiffts/js": "file:../refDiffTS/packages/refdiffts-js",
-    "@types/walk": "^2.3.1",
-    "file": "^0.2.2",
-    "walk": "^2.3.15",
-    "simple-git": "^3.17.0",
-    "query-string": "7.1.3"
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "modulePathIgnorePatterns": ["extension"]
   }
 }

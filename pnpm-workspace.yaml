@@ -1,0 +1,3 @@
+packages:
+  - 'refDiffTS/packages/**'
+  - 'extension'
