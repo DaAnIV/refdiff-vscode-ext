@@ -1,14 +1,15 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import * as fs from 'fs';
 import * as core from '@refdiffts/core';
 import * as js from '@refdiffts/js';
 import { AssertionError } from 'assert';
-import * as tmp from 'tmp';
+import { RefDiffDocumentrovider } from './refdiffDocumentProvider';
 
 
 export class RefDiffTreeItem extends vscode.TreeItem {
   public readonly nodes: Set<RefDiffRelationshipItem> = new Set<RefDiffRelationshipItem>;
+  private parentVar?: RefDiffTreeItem;
+  public documentRootID: number;
 
   protected getFirstDefinedNode(rel: core.Relationship): core.CSTNode {
     if (rel.before !== undefined) { return rel.before; }
@@ -18,53 +19,52 @@ export class RefDiffTreeItem extends vscode.TreeItem {
 
   protected constructor(label: string | vscode.TreeItemLabel, collapsibleState?: vscode.TreeItemCollapsibleState) {
     super(label, collapsibleState);
+    this.documentRootID = -1;
+  }
+
+  public parent(): RefDiffTreeItem | undefined {
+    return this.parentVar;
+  }
+
+  public addNode(node: RefDiffRelationshipItem) {
+    node.parentVar = this;
+    this.nodes.add(node);
   }
 
   public click(): void { }
 }
 
 export class RefDiffRootItem extends RefDiffTreeItem {
-  constructor(
-    public readonly path1: string,
-    public readonly path2: string
-  ) {
-    let label = `${path.basename(path1)}<->${path.basename(path2)}`;
-    super(label, vscode.TreeItemCollapsibleState.Collapsed);
-    this.refresh();
+  static documentRootIDCounter: number = 0;
+
+  constructor(label: string) {
+    super(label, vscode.TreeItemCollapsibleState.Expanded);
+    this.contextValue = "root";
+    this.documentRootID = RefDiffRootItem.documentRootIDCounter++;
   }
 
-  public refresh() {
+  public refresh(beforeFiles: Map<string, Buffer>, afterFiles: Map<string, Buffer>) {
     this.nodes.clear();
-    let beforeFiles = this.getFilesFromPath(this.path1);
-    let afterFiles = this.getFilesFromPath(this.path2);
-    let before = js.JSCodeAnalyzer.parse(beforeFiles);
-    let after = js.JSCodeAnalyzer.parse(afterFiles);
+    RefDiffDocumentrovider.addRoot(this.documentRootID, beforeFiles, afterFiles);
+    let analyzer = new js.JSCodeAnalyzer();
+    let before = analyzer.parse(beforeFiles);
+    let after = analyzer.parse(afterFiles);
     let fileElements = new Map<string, RefDiffFileRelationshipItem>();
-    let filesBuffers = new Map<string, Buffer>();
     let nodeToNonMatchingRel = new Map<core.CSTNode, core.Relationship>;
 
-    this.contextValue = "root";
-
-    beforeFiles.forEach(filePath => {
-      filesBuffers.set(filePath, fs.readFileSync(filePath));
-    });
-    afterFiles.forEach(filePath => {
-      filesBuffers.set(filePath, fs.readFileSync(filePath));
-    });
-
-    let relationships = core.RelationshipFinder.findRelationships(before, after);
+    let relationships = core.RelationshipFinder.findRelationships(before, after, beforeFiles, afterFiles);
     relationships.forEach((rel) => {
       let node = this.getFirstDefinedNode(rel);
       if (node.type !== "File") {
         return;
       }
-      let diffElement = new RefDiffFileRelationshipItem(filesBuffers, rel);
-      this.nodes.add(diffElement);
+      let diffElement = new RefDiffFileRelationshipItem(this, beforeFiles, afterFiles, rel);
+      this.addNode(diffElement);
       if (rel.before !== undefined) {
-        fileElements.set(rel.before.localName, diffElement);
+        fileElements.set(path.join(rel.before.namespace as string, rel.before.localName), diffElement);
       }
       if (rel.after !== undefined) {
-        fileElements.set(rel.after.localName, diffElement);
+        fileElements.set(path.join(rel.after.namespace as string, rel.after.localName), diffElement);
       }
     });
     relationships.forEach((rel) => {
@@ -90,7 +90,7 @@ export class RefDiffRootItem extends RefDiffTreeItem {
       if (this.isNonMatchingRelationship(rel)) {
         return;
       }
-      let fileElement = fileElements.get(path.basename(node.location.file)) as RefDiffFileRelationshipItem;
+      let fileElement = fileElements.get(node.location.file) as RefDiffFileRelationshipItem;
       let nonMatchRel = undefined;
       if (rel.before !== undefined && rel.after !== undefined) {
         nonMatchRel = nodeToNonMatchingRel.get(rel.before);
@@ -98,68 +98,64 @@ export class RefDiffRootItem extends RefDiffTreeItem {
           nonMatchRel = nodeToNonMatchingRel.get(rel.after);
         }
       }
-      let diffElement = new RefDiffLeafRelationshipItem(filesBuffers, rel, vscode.TreeItemCollapsibleState.None, nonMatchRel);
-      fileElement.nodes.add(diffElement);
+      let diffElement = new RefDiffLeafRelationshipItem(this, beforeFiles, afterFiles, rel, vscode.TreeItemCollapsibleState.None, nonMatchRel);
+      fileElement.addNode(diffElement);
     });
   }
 
   private isNonMatchingRelationship(rel: core.Relationship): boolean {
     return rel.type >= core.RelationshipType.extractSuperType && rel.type <= core.RelationshipType.inline;
   }
-
-  private getFilesFromPath(pathToCheck: string): string[] {
-    if (!fs.lstatSync(pathToCheck).isDirectory()) {
-      return [pathToCheck];
-    }
-    let result: string[] = [];
-    fs.readdirSync(pathToCheck).forEach((val) => {
-      let fullPath = path.join(pathToCheck, val);
-      result.push(...this.getFilesFromPath(fullPath));
-    });
-    return result;
-  }
 }
 
 export class RefDiffRelationshipItem extends RefDiffTreeItem {
   public nonMatchRel: boolean = false;
+  beforeUri!: vscode.Uri;
+  afterUri!: vscode.Uri;
 
   protected constructor(
-    buffers: Map<string, Buffer>,
+    root: RefDiffRootItem,
+    beforeFiles: Map<string, Buffer>, afterFiles: Map<string, Buffer>,
     public readonly rel: core.Relationship,
     collapseState: vscode.TreeItemCollapsibleState,
     public readonly nonMatchingRel?: core.Relationship
   ) {
     super("", collapseState);
+    this.documentRootID = root.documentRootID;
 
-    this.label = RefDiffRelationshipItem.getLabel(rel, nonMatchingRel);
-    this.description = RefDiffRelationshipItem.getDescription(rel, buffers, nonMatchingRel);
+    this.label = this.getLabel(rel, nonMatchingRel);
+    this.description = this.getDescription(rel, beforeFiles, afterFiles, nonMatchingRel);
 
     let node = this.getFirstDefinedNode(rel);
     this.contextValue = node.type.toLowerCase();
     this.iconPath = new vscode.ThemeIcon(`symbol-${this.contextValue}`);
   }
 
-  protected static getLabel(rel: core.Relationship, nonMatchingRel?: core.Relationship): string {
+  protected nodeName(node: core.CSTNode) {
+    return node.localName;
+  }
+
+  protected getLabel(rel: core.Relationship, nonMatchingRel?: core.Relationship): string {
     let label = "";
     if (rel.before !== undefined && rel.after !== undefined) {
-      label = `${rel.before.localName}`;
+      label = `${this.nodeName(rel.before)}`;
       if (nonMatchingRel?.type === core.RelationshipType.inline) {
-        label += `+${nonMatchingRel.before?.localName}`;
+        label += `+${this.nodeName(nonMatchingRel.before as core.CSTNode)}`;
       }
       label += `->${rel.after.localName}`;
       if (nonMatchingRel?.type === core.RelationshipType.extract ||
         nonMatchingRel?.type === core.RelationshipType.extractAndMove) {
-        label += `+${nonMatchingRel.after?.localName}`;
+        label += `+${this.nodeName(nonMatchingRel.after as core.CSTNode)}`;
       }
     } else if (rel.before !== undefined) {
-      label = `${rel.before.localName}`;
+      label = `${this.nodeName(rel.before)}`;
     } else if (rel.after !== undefined) {
-      label += `${rel.after.localName}`;
+      label += `${this.nodeName(rel.after)}`;
     }
     return label;
   }
 
-  protected static getDescription(rel: core.Relationship, buffers: Map<string, Buffer>, nonMatchingRel?: core.Relationship): string {
+  protected getDescription(rel: core.Relationship, beforeFiles: Map<string, Buffer>, afterFiles: Map<string, Buffer>, nonMatchingRel?: core.Relationship): string {
     let modified = false;
     let description = core.RelationshipType[rel.type];
     if (nonMatchingRel !== undefined) {
@@ -167,8 +163,8 @@ export class RefDiffRelationshipItem extends RefDiffTreeItem {
     }
     if (rel.before !== undefined && rel.after !== undefined) {
       modified = this.checkModified(rel.before, rel.after,
-        buffers.get(rel.before.location.file) as Buffer,
-        buffers.get(rel.after.location.file) as Buffer);
+        beforeFiles.get(rel.before.location.file) as Buffer,
+        afterFiles.get(rel.after.location.file) as Buffer);
     }
     if (modified) {
       description += " modified";
@@ -176,35 +172,61 @@ export class RefDiffRelationshipItem extends RefDiffTreeItem {
     return description;
   }
 
-  protected static checkModified(_before: core.CSTNode, _after: core.CSTNode, _beforeBuffer: Buffer, _afterBuffer: Buffer): boolean {
+  protected checkModified(_before: core.CSTNode, _after: core.CSTNode, _beforeBuffer: Buffer, _afterBuffer: Buffer): boolean {
     return false;
+  }
+
+  public click(): void {
+    vscode.commands.executeCommand("vscode.diff",
+      this.beforeUri,
+      this.afterUri,
+      this.label);
   }
 }
 
 export class RefDiffLeafRelationshipItem extends RefDiffRelationshipItem {
-  beforeData: string = "";
-  afterData: string = "";
-
   constructor(
-    buffers: Map<string, Buffer>,
+    root: RefDiffRootItem,
+    beforeFiles: Map<string, Buffer>, afterFiles: Map<string, Buffer>,
     public readonly rel: core.Relationship,
     collapseState: vscode.TreeItemCollapsibleState,
     nonMatchingRel?: core.Relationship
   ) {
-    super(buffers, rel, collapseState, nonMatchingRel);
+    super(root, beforeFiles, afterFiles, rel, collapseState, nonMatchingRel);
+
+    let query: string;
 
     if (rel.before !== undefined) {
-      this.beforeData = (buffers.get(rel.before.location.file) as Buffer).toString("ascii",
-        rel.before.location.begin,
-        rel.before.location.end);
+      this.beforeUri = vscode.Uri.from({
+        scheme: RefDiffDocumentrovider.scheme,
+        path: rel.before.location.file,
+        query: `id=${this.documentRootID}&` +
+          `type=before&` +
+          `begin=${rel.before.location.begin}&` +
+          `end=${rel.before.location.end}`
+      });
+    } else {
+      this.beforeUri = vscode.Uri.from({
+        scheme: "untitled",
+        path: rel.after?.location.file
+      });
     }
 
     if (rel.after !== undefined) {
-      this.afterData = (buffers.get(rel.after.location.file) as Buffer).toString("ascii",
-        rel.after.location.begin,
-        rel.after.location.end);
+      this.afterUri = vscode.Uri.from({
+        scheme: RefDiffDocumentrovider.scheme,
+        path: rel.after.location.file,
+        query: `id=${this.documentRootID}&` +
+          `type=after&` +
+          `begin=${rel.after.location.begin}&` +
+          `end=${rel.after.location.end}`
+      });
+    } else {
+      this.afterUri = vscode.Uri.from({
+        scheme: "untitled",
+        path: rel.before?.location.file
+      });
     }
-
     if (nonMatchingRel === undefined) {
       return;
     }
@@ -213,35 +235,26 @@ export class RefDiffLeafRelationshipItem extends RefDiffRelationshipItem {
     switch (nonMatchingRel.type) {
       case core.RelationshipType.inline:
         nonMatchingRelNode = nonMatchingRel.before as core.CSTNode;
-        this.beforeData += "\n\n";
-        this.beforeData += (buffers.get(nonMatchingRelNode.location.file) as Buffer).toString("ascii",
-          nonMatchingRelNode.location.begin,
-          nonMatchingRelNode.location.end);
+        query = this.beforeUri.query +
+          `&file=${nonMatchingRelNode.location.file}` +
+          `&begin=${nonMatchingRelNode.location.begin}` +
+          `&end=${nonMatchingRelNode.location.end}`;
+        this.beforeUri = this.beforeUri.with({ query: query });
         break;
       case core.RelationshipType.extract:
       case core.RelationshipType.extractAndMove:
         nonMatchingRelNode = nonMatchingRel.after as core.CSTNode;
-        this.afterData += "\n\n";
-        this.afterData += (buffers.get(nonMatchingRelNode.location.file) as Buffer).toString("ascii",
-          nonMatchingRelNode.location.begin,
-          nonMatchingRelNode.location.end);
+        query = this.afterUri.query +
+          `&file=${nonMatchingRelNode.location.file}` +
+          `&begin=${nonMatchingRelNode.location.begin}` +
+          `&end=${nonMatchingRelNode.location.end}`;
+        this.afterUri = this.afterUri.with({ query: query });
         break;
 
     }
   }
 
-  public click(): void {
-    let before = tmp.fileSync({ prefix: "refdiff-", postfix: ".js" });
-    let after = tmp.fileSync({ prefix: "refdiff-", postfix: ".js" });
-    fs.writeFileSync(before.name, this.beforeData);
-    fs.writeFileSync(after.name, this.afterData);
-    vscode.commands.executeCommand("vscode.diff",
-      vscode.Uri.file(before.name),
-      vscode.Uri.file(after.name),
-      this.label);
-  }
-
-  protected static checkModified(before: core.CSTNode, after: core.CSTNode, beforeBuffer: Buffer, afterBuffer: Buffer): boolean {
+  protected checkModified(before: core.CSTNode, after: core.CSTNode, beforeBuffer: Buffer, afterBuffer: Buffer): boolean {
     return beforeBuffer.compare(afterBuffer,
       after.location.bodyBegin, after.location.bodyEnd,
       before.location.bodyBegin, before.location.bodyEnd) !== 0;
@@ -250,34 +263,44 @@ export class RefDiffLeafRelationshipItem extends RefDiffRelationshipItem {
 
 export class RefDiffFileRelationshipItem extends RefDiffRelationshipItem {
   constructor(
-    buffers: Map<string, Buffer>,
+    root: RefDiffRootItem,
+    beforeFiles: Map<string, Buffer>, afterFiles: Map<string, Buffer>,
     public readonly rel: core.Relationship
   ) {
-    super(buffers, rel, vscode.TreeItemCollapsibleState.Collapsed);
-  }
+    super(root, beforeFiles, afterFiles, rel, vscode.TreeItemCollapsibleState.Collapsed);
 
-  public click(): void {
-    let empty = tmp.fileSync({ prefix: "refdiff-", postfix: ".js" });
+    if (rel.before !== undefined) {
+      this.beforeUri = vscode.Uri.from({
+        scheme: RefDiffDocumentrovider.scheme,
+        path: rel.before.location.file,
+        query: `id=${this.documentRootID}&type=before`
+      });
+    } else {
+      this.beforeUri = vscode.Uri.from({
+        scheme: "untitled",
+        path: rel.after?.location.file
+      });
+    }
 
-    if (this.rel.before !== undefined && this.rel.after !== undefined) {
-      vscode.commands.executeCommand("vscode.diff",
-        vscode.Uri.file(this.rel.before.location.file),
-        vscode.Uri.file(this.rel.after.location.file),
-        this.label);
-    } else if (this.rel.before !== undefined) {
-      vscode.commands.executeCommand("vscode.diff",
-        vscode.Uri.file(this.rel.before.location.file),
-        vscode.Uri.file(empty.name),
-        this.label);
-    } else if (this.rel.after !== undefined) {
-      vscode.commands.executeCommand("vscode.diff",
-        vscode.Uri.file(empty.name),
-        vscode.Uri.file(this.rel.after.location.file),
-        this.label);
+    if (rel.after !== undefined) {
+      this.afterUri = vscode.Uri.from({
+        scheme: RefDiffDocumentrovider.scheme,
+        path: rel.after.location.file,
+        query: `id=${this.documentRootID}&type=after`
+      });
+    } else {
+      this.afterUri = vscode.Uri.from({
+        scheme: "untitled",
+        path: rel.before?.location.file
+      });
     }
   }
 
-  protected static checkModified(_before: core.CSTNode, _after: core.CSTNode, beforeBuffer: Buffer, afterBuffer: Buffer): boolean {
+  protected nodeName(node: core.CSTNode) {
+    return path.join(node.namespace as string, node.localName);
+  }
+
+  protected checkModified(_before: core.CSTNode, _after: core.CSTNode, beforeBuffer: Buffer, afterBuffer: Buffer): boolean {
     return beforeBuffer.compare(afterBuffer) !== 0;
   }
 }

@@ -9,74 +9,93 @@
   "categories": [
     "Other"
   ],
+  "type": "commonjs",
   "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "refdiff.helloWorld",
-        "title": "Hello World"
-      },
-      {
-        "command": "refdiff.compare",
+        "command": "refdiffvsc.compare",
         "title": "Compare with RefDiff",
         "enablement": "listDoubleSelection"
       },
       {
-        "command": "refdiff.refresh",
+        "command": "refdiffvsc.refresh",
         "title": "Refresh",
         "icon": "$(refresh)"
       },
       {
-        "command": "refdiff.delete",
+        "command": "refdiffvsc.delete",
         "title": "Delete",
         "icon": "$(trash)"
       },
       {
-        "command": "refdiff.click",
-        "title": "click"
+        "command": "refdiffvsc.scm.refresh",
+        "title": "Refresh",
+        "icon": "$(refresh)"
       }
     ],
     "menus": {
       "explorer/context": [
         {
-          "command": "refdiff.compare",
+          "command": "refdiffvsc.compare",
           "when": "listDoubleSelection"
         }
       ],
       "view/item/context": [
         {
-          "command": "refdiff.refresh",
-          "when": "view == refDiffCompareView && viewItem == root",
+          "command": "refdiffvsc.refresh",
+          "when": "view == refdiffvsc.compareView && viewItem == root",
           "group": "inline"
         },
         {
-          "command": "refdiff.delete",
-          "when": "view == refDiffCompareView && viewItem == root",
+          "command": "refdiffvsc.delete",
+          "when": "view == refdiffvsc.compareView && viewItem == root",
           "group": "inline"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "refdiffvsc.scm.refresh",
+          "when": "view == refdiffvsc.SCMView",
+          "group": "navigation"
         }
       ]
     },
     "viewsWelcome": [
       {
-        "view": "refDiffCompareView",
+        "view": "refdiffvsc.compareView",
         "contents": "No comparisons"
+      },
+      {
+        "view": "refdiffvsc.SCMView",
+        "contents": "No git repositories",
+        "when": "!config.git.enabled || git.state != initialized"
+      },
+      {
+        "view": "refdiffvsc.SCMView",
+        "contents": "No changes",
+        "when": "config.git.enabled && git.state == initialized && workbenchState == empty"
       }
     ],
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "refDiffContainer",
+          "id": "refdiffvsc",
           "title": "RefDiff",
           "icon": "resources/RefDiffContainer.svg"
         }
       ]
     },
     "views": {
-      "refDiffContainer": [
+      "refdiffvsc": [
         {
-          "id": "refDiffCompareView",
+          "id": "refdiffvsc.compareView",
           "name": "Ref Diff compare"
+        },
+        {
+          "id": "refdiffvsc.SCMView",
+          "name": "Ref Diff SCM"
         }
       ]
     }
@@ -106,9 +125,9 @@
     "@refdiffts/core": "file:../refDiffTS/packages/refdiffts-core",
     "@refdiffts/js": "file:../refDiffTS/packages/refdiffts-js",
     "@types/walk": "^2.3.1",
-    "@types/tmp": "^0.2.3",
     "file": "^0.2.2",
-    "tmp": "0.2.1",
-    "walk": "^2.3.15"
+    "walk": "^2.3.15",
+    "simple-git": "^3.17.0",
+    "query-string": "7.1.3"
   }
 }
