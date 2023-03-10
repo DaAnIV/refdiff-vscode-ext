@@ -17,25 +17,66 @@
       {
         "command": "refdiffvsc.compare",
         "title": "Compare with RefDiff",
-        "enablement": "listDoubleSelection"
+        "enablement": "listDoubleSelection",
+        "category": "RefDiff"
       },
       {
         "command": "refdiffvsc.refresh",
         "title": "Refresh",
-        "icon": "$(refresh)"
+        "icon": "$(refresh)",
+        "category": "RefDiff"
       },
       {
         "command": "refdiffvsc.delete",
         "title": "Delete",
-        "icon": "$(trash)"
+        "icon": "$(trash)",
+        "category": "RefDiff"
       },
       {
         "command": "refdiffvsc.scm.refresh",
-        "title": "Refresh",
-        "icon": "$(refresh)"
+        "title": "Refresh Git",
+        "icon": "$(refresh)",
+        "category": "RefDiff"
+      },
+      {
+        "command": "refdiffvsc.scm.delete",
+        "title": "Delete",
+        "icon": "$(trash)",
+        "category": "RefDiff"
+      },
+      {
+        "command": "refdiffvsc.scm.compare",
+        "title": "Mine commit refactoring",
+        "category": "RefDiff"
       }
     ],
     "menus": {
+      "commandPalette": [
+        {
+          "command": "refdiffvsc.compare",
+          "when": "false"
+        },
+        {
+          "command": "refdiffvsc.refresh",
+          "when": "false"
+        },
+        {
+          "command": "refdiffvsc.delete",
+          "when": "false"
+        },
+        {
+          "command": "refdiffvsc.scm.delete",
+          "when": "false"
+        },
+        {
+          "command": "refdiffvsc.scm.refresh",
+          "when": "config.git.enabled && !git.missing"
+        },
+        {
+          "command": "refdiffvsc.scm.compare",
+          "when": "config.git.enabled && !git.missing"
+        }
+      ],
       "explorer/context": [
         {
           "command": "refdiffvsc.compare",
@@ -51,6 +92,11 @@
         {
           "command": "refdiffvsc.delete",
           "when": "view == refdiffvsc.compareView && viewItem == root",
+          "group": "inline"
+        },
+        {
+          "command": "refdiffvsc.scm.delete",
+          "when": "view == refdiffvsc.SCMView && viewItem == commitRoot",
           "group": "inline"
         }
       ],

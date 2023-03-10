@@ -8,7 +8,7 @@ class RefDiffCompareRootItem extends RefDiffRootItem
 {
   constructor(public readonly path1: string, public readonly path2: string) {
     let label = `${path.basename(path1)}<->${path.basename(path2)}`;
-    super(label);
+    super(label, undefined, "root");
   }
 
   public refreshPaths() {
@@ -89,8 +89,8 @@ export class RefDiffTreeProvider implements vscode.TreeDataProvider<RefDiffTreeI
       console.log('refdiffvsc.compare called!');
       let path1 = commandArgs[1][0].path;
       let path2 = commandArgs[1][1].path;
-      this.compare(path1, path2);
-      tree.reveal(this.roots.values().next().value, {select: false, focus: true});
+      let newRoot = this.compare(path1, path2);
+      tree.reveal(newRoot, {select: true, focus: true});
     });
     this.subscriptions.push(disposable);
   }
@@ -114,11 +114,12 @@ export class RefDiffTreeProvider implements vscode.TreeDataProvider<RefDiffTreeI
       return element.parent();
   }
 
-  compare(path1: string, path2: string) {
+  compare(path1: string, path2: string): RefDiffTreeItem {
     let newRoot = new RefDiffCompareRootItem(path1, path2);
     newRoot.refreshPaths();
     this.roots.add(newRoot);
     this.refresh();
+    return newRoot;
   }
 
   refresh(): void {

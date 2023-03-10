@@ -5,6 +5,7 @@ import * as git from 'simple-git';
 import * as path from 'path';
 import * as fs from 'fs';
 import { openStdin } from 'process';
+import { RefDiffDocumentrovider } from './refdiffDocumentProvider';
 
 let vscodeGitAPI: vscodeGit.API;
 
@@ -16,6 +17,24 @@ enum Stage {
 
 type RepoRoots = { changesRoot: RefDiffRootItem, stagedRoot: RefDiffRootItem };
 
+class CommitQuickPickItem implements vscode.QuickPickItem
+{
+  label: string;
+  kind?: vscode.QuickPickItemKind | undefined;
+  description?: string | undefined;
+  detail?: string | undefined;
+  picked?: boolean | undefined;
+  alwaysShow?: boolean | undefined;
+  buttons?: readonly vscode.QuickInputButton[] | undefined;
+
+  constructor(log: git.DefaultLogFields, public readonly index: number) {
+    this.label = log.message;
+    this.description = log.hash;
+    this.detail = log.body;
+  }
+  
+}
+
 export class RefDiffSCMTreeProvider implements vscode.TreeDataProvider<RefDiffTreeItem>, vscode.Disposable {
   repoToRoots: Map<string, RepoRoots> = new Map<string, RepoRoots>();
   roots: Set<RefDiffRootItem> = new Set<RefDiffRootItem>();
@@ -23,6 +42,7 @@ export class RefDiffSCMTreeProvider implements vscode.TreeDataProvider<RefDiffTr
   readonly onDidChangeTreeData: vscode.Event<RefDiffTreeItem | undefined | null | void> = this._onDidChangeTreeData.event;
   private stage = Stage.notInitialized;
   private subscriptions: { dispose(): any }[] = [];
+  private tree?: vscode.TreeView<RefDiffTreeItem>;
 
   constructor(private workspaceRoot: vscode.Uri) {
     this.workspaceRoot = workspaceRoot;
@@ -42,11 +62,42 @@ export class RefDiffSCMTreeProvider implements vscode.TreeDataProvider<RefDiffTr
       });
     });
     this.subscriptions.push(disposable);
+    
+    disposable = vscode.commands.registerCommand("refdiffvsc.scm.compare", () => {
+      console.log("refdiffvsc.scm.compare called");
 
-    const tree = vscode.window.createTreeView('refdiffvsc.SCMView', { treeDataProvider: this, showCollapseAll: true, canSelectMany: false });
-    this.subscriptions.push(tree);
+      if (vscodeGitAPI.repositories.length === 0) {
+        vscode.window.showErrorMessage("No repositories found");
+        return;
+      }
+      if (vscodeGitAPI.repositories.length > 1) {
+        vscode.window.showQuickPick(vscodeGitAPI.repositories.map((elem) => elem.rootUri.path), {
+          title: "Select repository",
+          placeHolder: "repository",
+          canPickMany: false
+        }).then((selected) => {
+          let repo = vscodeGitAPI.repositories.filter((value) => value.rootUri.path === selected)[0];
+          this.compareForRepo(repo);
+        });
+        return;
+      } else {
+        this.compareForRepo(vscodeGitAPI.repositories[0]);
+      }
+    });
+    this.subscriptions.push(disposable);
+    disposable = vscode.commands.registerCommand("refdiffvsc.scm.delete", (...commandArgs) => {
+      console.log('refdiffvsc.scm.delete called!');
+      let root = commandArgs[0] as RefDiffRootItem;
+      this.roots.delete(root);
+      this.refreshItems();
+      RefDiffDocumentrovider.deleteRoot(root.documentRootID);
+    });
+    this.subscriptions.push(disposable);
 
-    tree.onDidChangeSelection((event) => {
+    this.tree = vscode.window.createTreeView('refdiffvsc.SCMView', { treeDataProvider: this, showCollapseAll: true, canSelectMany: false });
+    this.subscriptions.push(this.tree);
+
+    this.tree.onDidChangeSelection((event) => {
       if (event.selection.length > 0) {
         event.selection[0].click();
       }
@@ -55,6 +106,59 @@ export class RefDiffSCMTreeProvider implements vscode.TreeDataProvider<RefDiffTr
     let extension = vscode.extensions.getExtension<vscodeGit.GitExtension>('vscode.git') as vscode.Extension<vscodeGit.GitExtension>;
     await extension.activate();
     this.createWithGit(extension.exports);
+  }
+
+  private async compareForRepo(vscodeRepo: vscodeGit.Repository) {
+    let repo = git.simpleGit(vscodeRepo.rootUri.path, {
+      "binary": vscodeGitAPI.git.path
+    });
+
+    let selected = await vscode.window.showInputBox({ 
+      title: "Enter commit hash",
+      placeHolder: "commit hash"
+    });
+    if (selected === undefined) {
+      return;
+    }
+    
+    let log = await repo.log();
+    let selectedIndex = log.all.findIndex((value) => value.hash === selected);
+    let selectedCommit = log.all[selectedIndex];
+    let prevHash = undefined;
+    if (selectedIndex + 1 < log.total) {
+      prevHash = log.all[selectedIndex+1].hash;
+    }
+
+    let summary = await repo.diffSummary(`${selectedCommit.hash}^!`);
+    let beforeCommitBuffers = new Map<string, Buffer>();
+    let afterCommitBuffers = new Map<string, Buffer>();
+    for (let file of summary.files) {
+      let beforePath = file.file;
+      let afterPath = file.file;
+      if(file.file.includes(" => ")) {
+        let split = file.file.split(" => ", 2);
+        beforePath = split[0];
+        afterPath = split[1];
+      }
+
+      let content = await repo.show(`${selectedCommit.hash}:${beforePath}`).catch(() => { return undefined; });
+      if(typeof content === 'string') {
+        afterCommitBuffers.set(beforePath, Buffer.from(content, 'ascii'));
+      }
+      if (prevHash !== undefined) {
+        content = await repo.show(`${prevHash}:${afterPath}`).catch(() => { return undefined; });
+        if(typeof content === 'string') {
+          beforeCommitBuffers.set(afterPath, Buffer.from(content, 'ascii'));
+        }
+      }
+    }
+    
+    let root = new RefDiffRootItem(path.basename(vscodeRepo.rootUri.path), `Commit ${selectedCommit.hash} - ${selectedCommit.message}`, "commitRoot");
+    root.refresh(beforeCommitBuffers, afterCommitBuffers);
+    this.roots.add(root);
+    this.refreshItems();
+
+    this.tree?.reveal(root, {select: true, focus: true});
   }
 
   private createWithGit(gitExtension: vscodeGit.GitExtension) {
@@ -77,8 +181,8 @@ export class RefDiffSCMTreeProvider implements vscode.TreeDataProvider<RefDiffTr
   private initRepo(repo: vscodeGit.Repository) {
     console.log(path.basename(repo.rootUri.path));
 
-    let stagedChangesRoot = new RefDiffRootItem(`${path.basename(repo.rootUri.path)} Staged Changes`);
-    let changesRoot = new RefDiffRootItem(`${path.basename(repo.rootUri.path)} Changes`);
+    let stagedChangesRoot = new RefDiffRootItem(path.basename(repo.rootUri.path), 'Staged Changes', "repoRoot");
+    let changesRoot = new RefDiffRootItem(path.basename(repo.rootUri.path), 'Changes', "repoRoot");
     this.roots.add(stagedChangesRoot);
     this.roots.add(changesRoot);
     this.repoToRoots.set(repo.rootUri.path, { changesRoot: changesRoot, stagedRoot: stagedChangesRoot });
@@ -99,6 +203,10 @@ export class RefDiffSCMTreeProvider implements vscode.TreeDataProvider<RefDiffTr
       return Promise.resolve(Array.from(this.roots));
     }
     return Promise.resolve(Array.from((element as RefDiffRootItem).nodes));
+  }
+
+  getParent(element: RefDiffTreeItem): vscode.ProviderResult<RefDiffTreeItem> {
+      return element.parent();
   }
 
   private getBeforeName(status: git.StatusResult, path: string): string {
