@@ -6,6 +6,7 @@ function func1Renamed() {
 
 function func2() {
     console.log("abd2");
+    console.log(a);
 }
 
 function func3() {

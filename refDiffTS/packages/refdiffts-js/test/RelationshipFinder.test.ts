@@ -14,8 +14,8 @@ describe('RelationshipFinder', () => {
     let relationships = core.RelationshipFinder.findRelationships(
       before,
       after,
-	  beforeFiles,
-	  afterFiles
+	    beforeFiles,
+	    afterFiles
     );
 
     relationships.forEach((rel) => {

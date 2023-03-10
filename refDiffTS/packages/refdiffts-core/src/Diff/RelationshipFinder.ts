@@ -205,39 +205,45 @@ export class RelationshipFinder {
     return false;
   }
 
+  private sameSignature(before: CSTNode, after: CSTNode): boolean {
+    if(before.localName !== after.localName) {
+      return false;
+    }
+    if(before.parameters === undefined && after.parameters === undefined) {
+      return true;
+    }
+    if(before.parameters === undefined || after.parameters === undefined) {
+      return false;
+    }    
+    if(before.parameters.length !== after.parameters.length) {
+      return false;
+    }
+    return before.parameters.every((value, index) => value === after.parameters[index]);
+  }
+
   private findMatchingRelationship(
     before: CSTNode,
     after: CSTNode
   ): RelationshipType | undefined {
-    if (
-      before.type === after.type &&
-      before.localName === after.localName &&
-      this.sameParent(before, after)
-    ) {
+    let codeSim = this.codeSimiliarity.sim(before, after);
+    let sameParent = this.sameParent(before, after);
+    let sameSignature = this.sameSignature(before, after);
+    let sameName = before.localName === after.localName;
+    let sameType = before.type === after.type;
+
+    if (sameType && sameSignature && sameParent) {
       return RelationshipType.same;
     }
-    if (
-      before.type === after.type &&
-      before.localName === after.localName &&
-      !this.sameParent(before, after) &&
-      this.codeSimiliarity.sim(before, after) > this.simThreshold
-    ) {
+    if (sameType && !sameSignature && sameName && sameParent && codeSim > this.simThreshold) {
+      return RelationshipType.changeSignature;
+    }
+    if (sameType && sameName && !sameParent && codeSim > this.simThreshold) {
       return RelationshipType.move;
     }
-    if (
-      before.type === after.type &&
-      before.localName !== after.localName &&
-      this.sameParent(before, after) &&
-      this.codeSimiliarity.sim(before, after) > this.simThreshold
-    ) {
+    if (sameType && !sameName && sameParent && codeSim > this.simThreshold) {
       return RelationshipType.rename;
     }
-    if (
-      before.type === after.type &&
-      before.localName !== after.localName &&
-      !this.sameParent(before, after) &&
-      this.codeSimiliarity.sim(before, after) > this.simThreshold
-    ) {
+    if (sameType && !sameName && !sameParent && codeSim > this.simThreshold) {
       return RelationshipType.moveAndRename;
     }
     return undefined;
