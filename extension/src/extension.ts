@@ -3,7 +3,7 @@
 import * as vscode from 'vscode';
 import * as dp from './refdiffTreeProvider';
 import * as dpscm from './refdiffSCMTreeProvider';
-import { RefDiffDocumentrovider } from './refdiffDocumentProvider';
+import { EmptyDocumentrovider, RefDiffDocumentrovider } from './refdiffDocumentProvider';
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
@@ -12,7 +12,11 @@ export function activate(context: vscode.ExtensionContext) {
 	// This line of code will only be executed once when your extension is activated
 	console.log('Congratulations, your extension "refdiffvsc" is now active!');
 
-	RefDiffDocumentrovider.register();
+	let documentProvider = RefDiffDocumentrovider.register();
+	context.subscriptions.push(documentProvider);
+
+	documentProvider = EmptyDocumentrovider.register();
+	context.subscriptions.push(documentProvider);
 
 	const rootPath =
 		vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0

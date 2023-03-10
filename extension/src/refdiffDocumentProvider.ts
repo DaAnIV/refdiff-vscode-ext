@@ -1,6 +1,19 @@
 import * as vscode from 'vscode';
 import * as queryString from 'query-string';
 
+export class EmptyDocumentrovider implements vscode.TextDocumentContentProvider {
+    public static readonly scheme = "empty";
+    private static readonly instance = new EmptyDocumentrovider();
+
+    public static register(): vscode.Disposable {
+        return vscode.workspace.registerTextDocumentContentProvider(EmptyDocumentrovider.scheme, this.instance);
+    }
+
+    provideTextDocumentContent(_uri: vscode.Uri, _token: vscode.CancellationToken): vscode.ProviderResult<string> {
+        return "";
+    }
+}
+
 type RefDiffFilesSetPair = { before: Map<string, Buffer>, after: Map<string, Buffer> };
 
 export class RefDiffDocumentrovider implements vscode.TextDocumentContentProvider {

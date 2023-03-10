@@ -124,14 +124,14 @@ export class RefDiffSCMTreeProvider implements vscode.TreeDataProvider<RefDiffTr
       }
     }
 
-    let sel: vscode.DocumentSelector = { scheme: 'untitled', language: 'javascript' };
+    let sel: vscode.DocumentSelector = { scheme: 'empty', language: 'javascript' };
     let beforeIndexBuffers = new Map<string, Buffer>();
     let afterIndexBuffers = new Map<string, Buffer>();
     let beforeChangesBuffers = new Map<string, Buffer>();
     let afterChangesBuffers = new Map<string, Buffer>();
 
     for (let value of status.files) {
-      let document = await vscode.workspace.openTextDocument(vscode.Uri.file(value.path).with({ scheme: 'untitled' }));
+      let document = await vscode.workspace.openTextDocument(vscode.Uri.file(value.path).with({ scheme: 'empty' }));
       if(!vscode.languages.match(sel, document)) { continue; }
       let workingFile = undefined;
       let fullPath = path.join(vscodeRepo.rootUri.path, value.path);
