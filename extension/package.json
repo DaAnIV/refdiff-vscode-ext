@@ -2,6 +2,7 @@
   "name": "refdiffvsc",
   "displayName": "RefDiffVSC",
   "description": "",
+  "publisher": "DaAnIV",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.75.0"
@@ -9,9 +10,10 @@
   "categories": [
     "Other"
   ],
+  "repository": { "url": "https://github.com/DaAnIV/refdiff-vscode-ext" },
   "type": "commonjs",
   "activationEvents": [],
-  "main": "./out/extension.js",
+  "main": "./dist/main.js",
   "contributes": {
     "commands": [
       {
@@ -147,15 +149,19 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
-    "build": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
-    "pretest": "npm run compile && npm run lint",
+    "vscode:prepublish": "npm run esbuild-base -- --minify",
+    "build": "npm run esbuild",
+    "watch": "npm run esbuild-watch",
+    "pretest": "npm run test-compile && npm run lint",
     "lint": "eslint src --ext ts",
     "test": "node ./out/test/runTest.js",
     "prettier": "prettier --check src/",
-    "prettier:fix": "prettier --write src/"
+    "prettier:fix": "prettier --write src/",
+    "esbuild-base": "esbuild ./src/extension.ts --bundle --outfile=dist/main.js --external:vscode --format=cjs --platform=node",
+    "esbuild": "npm run esbuild-base -- --sourcemap",
+    "esbuild-watch": "npm run esbuild-base -- --sourcemap --watch",
+    "test-compile": "tsc -p ./",
+    "pack": "vsce package --ignoreFile .vscodeignore"
   },
   "devDependencies": {
     "@types/glob": "^8.1.0",
@@ -168,7 +174,8 @@
     "eslint": "^8.34.0",
     "glob": "^8.1.0",
     "mocha": "^10.2.0",
-    "typescript": "^4.9.5"
+    "typescript": "^4.9.5",
+    "esbuild": "^0.17.12"
   },
   "dependencies": {
     "@types/walk": "^2.3.1",
