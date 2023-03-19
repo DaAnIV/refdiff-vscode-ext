@@ -4,8 +4,8 @@ import * as vscodeGit from './git';
 import * as git from 'simple-git';
 import * as path from 'path';
 import * as fs from 'fs';
-import { openStdin } from 'process';
 import { RefDiffDocumentrovider } from './refdiffDocumentProvider';
+import { RefDiffAnalyzer } from './refdiffAnalyzer';
 
 let vscodeGitAPI: vscodeGit.API;
 
@@ -16,22 +16,6 @@ enum Stage {
 }
 
 type RepoRoots = { changesRoot: RefDiffRootItem; stagedRoot: RefDiffRootItem };
-
-class CommitQuickPickItem implements vscode.QuickPickItem {
-    label: string;
-    kind?: vscode.QuickPickItemKind | undefined;
-    description?: string | undefined;
-    detail?: string | undefined;
-    picked?: boolean | undefined;
-    alwaysShow?: boolean | undefined;
-    buttons?: readonly vscode.QuickInputButton[] | undefined;
-
-    constructor(log: git.DefaultLogFields, public readonly index: number) {
-        this.label = log.message;
-        this.description = log.hash;
-        this.detail = log.body;
-    }
-}
 
 export class RefDiffSCMTreeProvider
     implements vscode.TreeDataProvider<RefDiffTreeItem>, vscode.Disposable
@@ -63,9 +47,16 @@ export class RefDiffSCMTreeProvider
             'refdiffvsc.scm.refresh',
             (...commandArgs) => {
                 console.log('refdiffvsc.scm.refresh called!');
-                vscodeGitAPI.repositories.forEach((repo) => {
-                    this.refresh(repo);
-                });
+                vscode.window.withProgress(
+                    {
+                        location: { viewId: 'refdiffvsc.SCMView' }
+                    },
+                    async (progress) => {
+                        for (let repo of vscodeGitAPI.repositories) {
+                            await this.refresh(repo);
+                        }
+                    }
+                );
             }
         );
         this.subscriptions.push(disposable);
@@ -92,14 +83,31 @@ export class RefDiffSCMTreeProvider
                             }
                         )
                         .then((selected) => {
-                            let repo = vscodeGitAPI.repositories.filter(
-                                (value) => value.rootUri.path === selected
-                            )[0];
-                            this.compareForRepo(repo);
+                            vscode.window.withProgress(
+                                {
+                                    location: { viewId: 'refdiffvsc.SCMView' }
+                                },
+                                async (progress) => {
+                                    let repo = vscodeGitAPI.repositories.filter(
+                                        (value) =>
+                                            value.rootUri.path === selected
+                                    )[0];
+                                    await this.compareForRepo(repo);
+                                }
+                            );
                         });
                     return;
                 } else {
-                    this.compareForRepo(vscodeGitAPI.repositories[0]);
+                    vscode.window.withProgress(
+                        {
+                            location: { viewId: 'refdiffvsc.SCMView' }
+                        },
+                        async (progress) => {
+                            await this.compareForRepo(
+                                vscodeGitAPI.repositories[0]
+                            );
+                        }
+                    );
                 }
             }
         );
@@ -169,6 +177,10 @@ export class RefDiffSCMTreeProvider
                 let split = file.file.split(' => ', 2);
                 beforePath = split[0];
                 afterPath = split[1];
+            }
+            let lang = await RefDiffAnalyzer.getAnalyzerLanguage(beforePath);
+            if (lang === undefined) {
+                continue;
             }
 
             let content = await repo
@@ -297,22 +309,17 @@ export class RefDiffSCMTreeProvider
             }
         }
 
-        let sel: vscode.DocumentSelector = {
-            scheme: 'empty',
-            language: 'javascript'
-        };
         let beforeIndexBuffers = new Map<string, Buffer>();
         let afterIndexBuffers = new Map<string, Buffer>();
         let beforeChangesBuffers = new Map<string, Buffer>();
         let afterChangesBuffers = new Map<string, Buffer>();
 
         for (let value of status.files) {
-            let document = await vscode.workspace.openTextDocument(
-                vscode.Uri.file(value.path).with({ scheme: 'empty' })
-            );
-            if (!vscode.languages.match(sel, document)) {
+            let lang = await RefDiffAnalyzer.getAnalyzerLanguage(value.path);
+            if (lang === undefined) {
                 continue;
             }
+
             let workingFile = undefined;
             let fullPath = path.join(vscodeRepo.rootUri.path, value.path);
             if (fs.existsSync(fullPath)) {
@@ -379,8 +386,11 @@ export class RefDiffSCMTreeProvider
 
         let roots = this.repoToRoots.get(vscodeRepo.rootUri.path) as RepoRoots;
 
-        roots.changesRoot.refresh(beforeChangesBuffers, afterChangesBuffers);
-        roots.stagedRoot.refresh(beforeIndexBuffers, afterIndexBuffers);
+        await roots.changesRoot.refresh(
+            beforeChangesBuffers,
+            afterChangesBuffers
+        );
+        await roots.stagedRoot.refresh(beforeIndexBuffers, afterIndexBuffers);
 
         this.refreshItems();
     }

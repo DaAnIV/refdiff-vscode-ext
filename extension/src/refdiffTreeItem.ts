@@ -1,12 +1,12 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as core from '@refdiffts/core';
-import * as js from '@refdiffts/js';
 import { AssertionError } from 'assert';
 import {
     EmptyDocumentrovider,
     RefDiffDocumentrovider
 } from './refdiffDocumentProvider';
+import { RefDiffAnalyzer } from './refdiffAnalyzer';
 
 export class RefDiffTreeItem extends vscode.TreeItem {
     public readonly nodes: Set<RefDiffRelationshipItem> =
@@ -54,7 +54,7 @@ export class RefDiffRootItem extends RefDiffTreeItem {
         this.documentRootID = RefDiffRootItem.documentRootIDCounter++;
     }
 
-    public refresh(
+    public async refresh(
         beforeFiles: Map<string, Buffer>,
         afterFiles: Map<string, Buffer>
     ) {
@@ -64,7 +64,48 @@ export class RefDiffRootItem extends RefDiffTreeItem {
             beforeFiles,
             afterFiles
         );
-        let analyzer = new js.JSCodeAnalyzer();
+        let beforeFilesPerLang = new Map<string, Map<string, Buffer>>();
+        let afterFilesPerLang = new Map<string, Map<string, Buffer>>();
+        for (let lang of RefDiffAnalyzer.supportedLangauges) {
+            beforeFilesPerLang.set(lang, new Map<string, Buffer>());
+            afterFilesPerLang.set(lang, new Map<string, Buffer>());
+        }
+        for (let entry of beforeFiles.entries()) {
+            let lang = await RefDiffAnalyzer.getAnalyzerLanguage(entry[0]);
+            if (lang === undefined) {
+                continue;
+            }
+            beforeFilesPerLang.get(lang)!.set(entry[0], entry[1]);
+        }
+        for (let entry of afterFiles.entries()) {
+            let lang = await RefDiffAnalyzer.getAnalyzerLanguage(entry[0]);
+            if (lang === undefined) {
+                continue;
+            }
+            afterFilesPerLang.get(lang)!.set(entry[0], entry[1]);
+        }
+        for (let lang of RefDiffAnalyzer.supportedLangauges) {
+            this.refreshForLang(
+                beforeFilesPerLang.get(lang)!,
+                afterFilesPerLang.get(lang)!,
+                lang
+            );
+        }
+    }
+
+    private refreshForLang(
+        beforeFiles: Map<string, Buffer>,
+        afterFiles: Map<string, Buffer>,
+        language: string
+    ) {
+        if (beforeFiles.size === 0 && afterFiles.size === 0) {
+            return;
+        }
+        let analyzer = RefDiffAnalyzer.getAnalyzerForLanguage(language);
+        if (analyzer === undefined) {
+            return;
+        }
+
         let before = analyzer.parse(beforeFiles);
         let after = analyzer.parse(afterFiles);
         let fileElements = new Map<string, RefDiffFileRelationshipItem>();

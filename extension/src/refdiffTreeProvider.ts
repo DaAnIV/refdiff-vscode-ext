@@ -10,12 +10,12 @@ class RefDiffCompareRootItem extends RefDiffRootItem {
         super(label, undefined, 'root');
     }
 
-    public refreshPaths() {
+    public async refreshPaths() {
         let beforePaths = this.getFilesFromPath(this.path1);
         let afterPaths = this.getFilesFromPath(this.path2);
         let before = this.getBufferMapFromPaths(this.path1, beforePaths);
         let after = this.getBufferMapFromPaths(this.path2, afterPaths);
-        super.refresh(before, after);
+        await super.refresh(before, after);
     }
 
     private getBufferMapFromPaths(
@@ -69,11 +69,18 @@ export class RefDiffTreeProvider
 
         disposable = vscode.commands.registerCommand(
             'refdiffvsc.refresh',
-            (...commandArgs) => {
+            async (...commandArgs) => {
                 console.log('refdiffvsc.refresh called!');
                 let root = commandArgs[0] as RefDiffCompareRootItem;
-                root.refreshPaths();
-                this.refresh();
+                vscode.window.withProgress(
+                    {
+                        location: { viewId: 'refdiffvsc.compareView' }
+                    },
+                    async (progress) => {
+                        await root.refreshPaths();
+                        this.refresh();
+                    }
+                );
             }
         );
         this.subscriptions.push(disposable);
@@ -109,8 +116,15 @@ export class RefDiffTreeProvider
                 console.log('refdiffvsc.compare called!');
                 let path1 = commandArgs[1][0].path;
                 let path2 = commandArgs[1][1].path;
-                let newRoot = this.compare(path1, path2);
-                tree.reveal(newRoot, { select: true, focus: true });
+                vscode.window.withProgress(
+                    {
+                        location: { viewId: 'refdiffvsc.compareView' }
+                    },
+                    async (progress) => {
+                        let newRoot = await this.compare(path1, path2);
+                        tree.reveal(newRoot, { select: true, focus: true });
+                    }
+                );
             }
         );
         this.subscriptions.push(disposable);
@@ -139,9 +153,9 @@ export class RefDiffTreeProvider
         return element.parent();
     }
 
-    compare(path1: string, path2: string): RefDiffTreeItem {
+    async compare(path1: string, path2: string): Promise<RefDiffTreeItem> {
         let newRoot = new RefDiffCompareRootItem(path1, path2);
-        newRoot.refreshPaths();
+        await newRoot.refreshPaths();
         this.roots.add(newRoot);
         this.refresh();
         return newRoot;
