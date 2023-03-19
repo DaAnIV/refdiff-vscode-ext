@@ -231,6 +231,7 @@ export abstract class RefDiffRelationshipItem extends RefDiffTreeItem {
     public modified: boolean = false;
     beforeUri!: vscode.Uri;
     afterUri!: vscode.Uri;
+    diffLabel: string;
 
     protected constructor(
         root: RefDiffRootItem,
@@ -253,6 +254,7 @@ export abstract class RefDiffRelationshipItem extends RefDiffTreeItem {
         }
 
         this.label = this.getLabel(rel, nonMatchingRel);
+        this.diffLabel = this.getDiffLabel(rel, nonMatchingRel);
 
         let node = this.getFirstDefinedNode(rel);
         this.contextValue = node.type.toLowerCase();
@@ -263,31 +265,46 @@ export abstract class RefDiffRelationshipItem extends RefDiffTreeItem {
         return node.localName;
     }
 
+    protected getBeforeName(
+        rel: core.Relationship,
+        nonMatchingRel?: core.Relationship
+    ): string {
+        let name = this.nodeName(rel.before!);
+        if (nonMatchingRel?.type === core.RelationshipType.inline) {
+            name += `+${this.nodeName(nonMatchingRel.before!)}`;
+        }
+
+        return name;
+    }
+
+    protected getAfterName(
+        rel: core.Relationship,
+        nonMatchingRel?: core.Relationship
+    ): string {
+        let name = this.nodeName(rel.after!);
+        if (
+            nonMatchingRel?.type === core.RelationshipType.extract ||
+            nonMatchingRel?.type === core.RelationshipType.extractAndMove
+        ) {
+            name += `+${this.nodeName(nonMatchingRel.after!)}`;
+        }
+
+        return name;
+    }
+
     protected getLabel(
         rel: core.Relationship,
         nonMatchingRel?: core.Relationship
     ): string {
         let label = '';
         if (rel.before !== undefined && rel.after !== undefined) {
-            label = `${this.nodeName(rel.before)}`;
-            if (nonMatchingRel?.type === core.RelationshipType.inline) {
-                label += `+${this.nodeName(
-                    nonMatchingRel.before as core.CSTNode
-                )}`;
-            }
-            label += `->${rel.after.localName}`;
-            if (
-                nonMatchingRel?.type === core.RelationshipType.extract ||
-                nonMatchingRel?.type === core.RelationshipType.extractAndMove
-            ) {
-                label += `+${this.nodeName(
-                    nonMatchingRel.after as core.CSTNode
-                )}`;
-            }
+            label = this.getBeforeName(rel, nonMatchingRel);
+            label += `->`;
+            label += this.getAfterName(rel, nonMatchingRel);
         } else if (rel.before !== undefined) {
-            label = `${this.nodeName(rel.before)}`;
+            label = this.getBeforeName(rel, nonMatchingRel);
         } else if (rel.after !== undefined) {
-            label += `${this.nodeName(rel.after)}`;
+            label = this.getAfterName(rel, nonMatchingRel);
         }
         return label;
     }
@@ -297,7 +314,7 @@ export abstract class RefDiffRelationshipItem extends RefDiffTreeItem {
             'vscode.diff',
             this.beforeUri,
             this.afterUri,
-            this.label
+            this.diffLabel
         );
     }
 
@@ -307,6 +324,13 @@ export abstract class RefDiffRelationshipItem extends RefDiffTreeItem {
         _beforeBuffer: Buffer,
         _afterBuffer: Buffer
     ): boolean;
+
+    protected getDiffLabel(
+        rel: core.Relationship,
+        nonMatchingRel?: core.Relationship | undefined
+    ): string {
+        return this.getLabel(rel, nonMatchingRel);
+    }
 }
 
 class RefDiffFileRelationshipItem extends RefDiffRelationshipItem {
