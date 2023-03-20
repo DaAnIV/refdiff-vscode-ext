@@ -15,6 +15,13 @@ The extension implements the following relationships from RefDiff between code e
 * Extract Method/Function
 * Inline Method/Function
 
+It also has 2 new relationships
+
+* Added
+* Removed
+
+which is set for any unmatched code element.
+
 ## Features
 
 * Detects refactorings between two code elements that share a relationship, such as a method and its call sites.
