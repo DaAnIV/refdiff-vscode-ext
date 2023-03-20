@@ -383,6 +383,12 @@ class RefDiffFileRelationshipItem extends RefDiffRelationshipItem {
     private getDescription(rel: core.Relationship): string {
         let description = '';
         switch (rel.type) {
+            case core.RelationshipType.move:
+                description += 'Moved';
+                break;
+            case core.RelationshipType.moveAndRename:
+                description += 'Moved & renamed';
+                break;
             case core.RelationshipType.rename:
                 description += 'Renamed';
                 break;
