@@ -6,7 +6,7 @@ import { RefDiffDocumentrovider } from './refdiffDocumentProvider';
 
 class RefDiffCompareRootItem extends RefDiffRootItem {
     constructor(public readonly path1: string, public readonly path2: string) {
-        let label = `${path.basename(path1)}<->${path.basename(path2)}`;
+        let label = `${vscode.workspace.asRelativePath(path1, false)}<->${vscode.workspace.asRelativePath(path2, false)}`;
         super(label, undefined, 'root');
     }
 
