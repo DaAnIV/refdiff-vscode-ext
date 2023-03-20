@@ -8,6 +8,13 @@ import {
     RefDiffDocumentrovider
 } from './refdiffDocumentProvider';
 
+const refDiffProvider = new dp.RefDiffTreeProvider();
+const refDiffSCMProvider = new dpscm.RefDiffSCMTreeProvider();
+const _onActivation = new vscode.EventEmitter<undefined>();
+const onActivation = _onActivation.event;
+
+export { refDiffProvider, refDiffSCMProvider, onActivation };
+
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
@@ -26,13 +33,13 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.workspace.workspaceFolders.length > 0
             ? vscode.workspace.workspaceFolders[0].uri
             : vscode.Uri.parse('');
-    const diffProvider = new dp.RefDiffTreeProvider(rootPath);
-    diffProvider.create();
-    context.subscriptions.push(diffProvider);
+    refDiffProvider.create();
+    context.subscriptions.push(refDiffProvider);
 
-    const diffSCMProvider = new dpscm.RefDiffSCMTreeProvider(rootPath);
-    diffSCMProvider.create();
-    context.subscriptions.push(diffSCMProvider);
+    refDiffSCMProvider.create();
+    context.subscriptions.push(refDiffSCMProvider);
+
+    _onActivation.fire(undefined);
 }
 
 // This method is called when your extension is deactivated

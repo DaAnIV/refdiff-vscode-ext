@@ -32,8 +32,7 @@ export class RefDiffSCMTreeProvider
     private subscriptions: { dispose(): any }[] = [];
     private tree?: vscode.TreeView<RefDiffTreeItem>;
 
-    constructor(private workspaceRoot: vscode.Uri) {
-        this.workspaceRoot = workspaceRoot;
+    constructor() {
     }
 
     dispose() {
@@ -268,12 +267,6 @@ export class RefDiffSCMTreeProvider
     }
 
     getChildren(element?: RefDiffTreeItem): Thenable<RefDiffTreeItem[]> {
-        if (!this.workspaceRoot) {
-            vscode.window.showInformationMessage(
-                'No dependency in empty workspace'
-            );
-            return Promise.resolve([]);
-        }
         if (element === undefined) {
             return Promise.resolve(Array.from(this.roots));
         }

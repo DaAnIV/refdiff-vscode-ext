@@ -54,9 +54,7 @@ export class RefDiffTreeProvider
     > = this._onDidChangeTreeData.event;
     private subscriptions: { dispose(): any }[] = [];
 
-    constructor(private workspaceRoot: vscode.Uri) {
-        this.workspaceRoot = workspaceRoot;
-    }
+    constructor() {}
 
     dispose() {
         this.subscriptions.forEach((disposable) => {
@@ -135,12 +133,6 @@ export class RefDiffTreeProvider
     }
 
     getChildren(element?: RefDiffTreeItem): Thenable<RefDiffTreeItem[]> {
-        if (!this.workspaceRoot) {
-            vscode.window.showInformationMessage(
-                'No dependency in empty workspace'
-            );
-            return Promise.resolve([]);
-        }
         if (element === undefined) {
             return Promise.resolve(Array.from(this.roots));
         }
