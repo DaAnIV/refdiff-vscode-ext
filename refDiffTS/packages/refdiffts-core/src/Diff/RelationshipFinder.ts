@@ -90,7 +90,7 @@ export class RelationshipFinder {
             afterNodes.forEach((after) => {
                 if (
                     before.namespace === after.namespace &&
-                    before.localName === after.localName
+                    this.sameSignature(before, after)
                 ) {
                     this.addMatch(before, after);
                 }
