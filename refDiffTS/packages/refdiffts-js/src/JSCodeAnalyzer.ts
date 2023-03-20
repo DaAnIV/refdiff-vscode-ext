@@ -32,13 +32,15 @@ function createLocation(
     state: ParserWalkState,
     body?: types.BlockStatement | types.Expression | types.ClassBody 
 ): core.Location {
-    let begin = path.node.start as number;
-    let end = path.node.end as number;
+    let begin = path.node.start!;
+    let end = path.node.end!;
     let bodyBegin = begin;
     let bodyEnd = end;
-    let line = 0;
+    let lineStart = 0;
+    let lineEnd = 0;
     if (path.node.loc !== undefined && path.node.loc !== null) {
-        line = path.node.loc.start.line;
+        lineStart = path.node.loc.start.line;
+        lineEnd = path.node.loc.end.line;
     }
     if (body !== undefined && 'start' in body) {
         bodyBegin = body.start!;
@@ -47,7 +49,8 @@ function createLocation(
 
     return new core.Location(
         state.filePath,
-        line,
+        lineStart,
+        lineEnd,
         begin,
         end,
         bodyBegin,

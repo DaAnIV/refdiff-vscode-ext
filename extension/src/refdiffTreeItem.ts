@@ -442,7 +442,9 @@ class RefDiffLeafRelationshipItem extends RefDiffRelationshipItem {
                     `id=${this.documentRootID}&` +
                     `type=before&` +
                     `begin=${rel.before.location.begin}&` +
-                    `end=${rel.before.location.end}`
+                    `end=${rel.before.location.end}&` +
+                    `lineStart=${rel.before.location.lineStart}&` +
+                    `lineEnd=${rel.before.location.lineEnd}`
             });
         } else {
             this.beforeUri = vscode.Uri.from({
@@ -459,7 +461,9 @@ class RefDiffLeafRelationshipItem extends RefDiffRelationshipItem {
                     `id=${this.documentRootID}&` +
                     `type=after&` +
                     `begin=${rel.after.location.begin}&` +
-                    `end=${rel.after.location.end}`
+                    `end=${rel.after.location.end}&` +
+                    `lineStart=${rel.after.location.lineStart}&` +
+                    `lineEnd=${rel.after.location.lineEnd}`
             });
         } else {
             this.afterUri = vscode.Uri.from({
@@ -479,7 +483,9 @@ class RefDiffLeafRelationshipItem extends RefDiffRelationshipItem {
                     this.beforeUri.query +
                     `&file=${nonMatchingRelNode.location.file}` +
                     `&begin=${nonMatchingRelNode.location.begin}` +
-                    `&end=${nonMatchingRelNode.location.end}`;
+                    `&end=${nonMatchingRelNode.location.end}` +
+                    `&lineStart=${nonMatchingRelNode.location.lineStart}` +
+                    `&lineEnd=${nonMatchingRelNode.location.lineEnd}`;
                 this.beforeUri = this.beforeUri.with({ query: query });
                 break;
             case core.RelationshipType.extract:
@@ -489,7 +495,9 @@ class RefDiffLeafRelationshipItem extends RefDiffRelationshipItem {
                     this.afterUri.query +
                     `&file=${nonMatchingRelNode.location.file}` +
                     `&begin=${nonMatchingRelNode.location.begin}` +
-                    `&end=${nonMatchingRelNode.location.end}`;
+                    `&end=${nonMatchingRelNode.location.end}` +
+                    `&lineStart=${nonMatchingRelNode.location.lineStart}` +
+                    `&lineEnd=${nonMatchingRelNode.location.lineEnd}`;
                 this.afterUri = this.afterUri.with({ query: query });
                 break;
         }
@@ -517,7 +525,7 @@ class RefDiffLeafRelationshipItem extends RefDiffRelationshipItem {
         switch (rel.type) {
             case core.RelationshipType.same:
                 if (this.modified) {
-                    description += 'Same signature';
+                    description += 'Same signature and location';
                 }
                 break;
             case core.RelationshipType.changeSignature:

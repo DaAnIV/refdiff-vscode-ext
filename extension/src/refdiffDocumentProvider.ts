@@ -74,27 +74,34 @@ export class RefDiffDocumentrovider
         }
 
         if (typeof query.begin === 'number' && typeof query.end === 'number') {
-            return buffer.toString('ascii', query.begin, query.end);
+            let locationComment = `// ${uri.path}: lines ${query.lineStart}-${query.lineEnd}\n`;
+            return locationComment + buffer.toString('ascii', query.begin, query.end);
         }
 
         let begin: Array<number>;
         let end: Array<number>;
+        let lineStart: Array<number>;
+        let lineEnd: Array<number>;
         if (
             query.begin instanceof Array<number> &&
             query.end instanceof Array<number>
         ) {
             begin = query.begin as Array<number>;
             end = query.end as Array<number>;
+            lineStart = query.lineStart as Array<number>;
+            lineEnd = query.lineEnd as Array<number>;
         } else {
             return undefined;
         }
 
-        let result = buffer.toString('ascii', begin[0], end[0]);
+        let result = `// ${uri.path}: lines ${lineStart[0]}-${lineEnd[0]}\n`;
+        result += buffer.toString('ascii', begin[0], end[0]);
         buffer = fileSet.get(query.file as string);
         if (buffer === undefined) {
             return undefined;
         }
         result += '\n\n';
+        result += `// ${query.file}: lines ${lineStart[1]}-${lineEnd[1]}\n`;
         result += buffer.toString('ascii', begin[1], end[1]);
 
         return result;
