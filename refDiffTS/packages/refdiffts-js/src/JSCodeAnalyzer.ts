@@ -152,7 +152,7 @@ class ClassMethodHandler implements NodePathHandler<types.ClassMethod> {
 
 class VariableDeclaratorHandler implements NodePathHandler<types.VariableDeclarator> {
     shouldHandle(nodePath: traverse.NodePath<types.VariableDeclarator>): boolean {
-        if (nodePath.node.init === undefined) {
+        if (nodePath.node.init === undefined || nodePath.node.init === null) {
             return false;
         }
 
@@ -331,7 +331,11 @@ export class JSCodeAnalyzer implements core.SourceCodeAnalyzer {
         let ast = babel.parse(buffer.toString(), {
             sourceType: 'module',
             sourceFilename: file,
-            tokens: true
+            tokens: true,
+            plugins: [
+                "jsx",
+                "flow"
+            ]
         });
         if (ast.tokens) {
             this.parseTokens(file, tree, ast.tokens);
